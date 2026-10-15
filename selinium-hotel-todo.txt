@@ -1,0 +1,449 @@
+
+index.html
+
+<!DOCTYPE html>
+<html lang="en" ng-app="hotelApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Booking Management</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            color: #333;
+        }
+
+        header {
+            background: navy;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 15px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: blue;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .booking {
+            background: #e0ecff;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .delete { background: red; }
+        .edit { background: teal; }
+        .message { font-weight: bold; }
+
+        footer {
+            text-align: center;
+            padding: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body ng-controller="hotelController">
+
+<header>
+    <h1>Hotel Booking Management</h1>
+    <p>Manage your guest room bookings</p>
+</header>
+
+<main class="container">
+
+    <section class="panel">
+        <h2 id="formTitle">
+            {{ editingId !== null ? 'Edit Booking' : 'Add New Booking' }}
+        </h2>
+
+        <form id="bookingForm" ng-submit="saveBooking()">
+            <label for="guestName">Guest Name</label>
+            <input id="guestName" type="text"
+                   ng-model="booking.guest"
+                   placeholder="Enter guest name" required>
+
+            <label for="roomNumber">Room Number</label>
+            <input id="roomNumber" type="text"
+                   ng-model="booking.room"
+                   placeholder="Enter room number" required>
+
+            <label for="roomType">Room Type</label>
+            <select id="roomType" ng-model="booking.type" required>
+                <option value="">Select room type</option>
+                <option value="Single">Single</option>
+                <option value="Double">Double</option>
+                <option value="Deluxe">Deluxe</option>
+                <option value="Suite">Suite</option>
+            </select>
+
+            <button id="submitBooking" type="submit">
+                {{ editingId !== null ? 'Update Booking' : 'Book Room' }}
+            </button>
+
+            <button id="cancelEdit" type="button"
+                    ng-click="cancelEdit()"
+                    ng-if="editingId !== null">
+                Cancel Edit
+            </button>
+        </form>
+
+        <p id="message" class="message">{{ message }}</p>
+    </section>
+
+    <section class="panel">
+        <h2>All Bookings</h2>
+
+        <input id="searchInput" type="text"
+               ng-model="search"
+               placeholder="Search guest, room or type">
+
+        <button id="refreshButton" ng-click="refresh()">Refresh</button>
+
+        <p id="totalBookings">Total bookings: {{ bookings.length }}</p>
+
+        <div id="bookingList">
+            <div class="booking"
+                 data-testid="booking"
+                 ng-repeat="b in bookings | filter:search track by b.id">
+
+                <p><b>Guest:</b> <span class="guestValue">{{ b.guest }}</span></p>
+                <p><b>Room:</b> <span class="roomValue">{{ b.room }}</span></p>
+                <p><b>Type:</b> <span class="typeValue">{{ b.type }}</span></p>
+
+                <button class="edit"
+                        ng-attr-id="{{ 'edit-' + b.id }}"
+                        ng-click="editBooking(b)">Edit</button>
+
+                <button class="delete"
+                        ng-attr-id="{{ 'delete-' + b.id }}"
+                        ng-click="deleteBooking(b.id)">Delete</button>
+            </div>
+        </div>
+
+        <p id="emptyMessage" ng-if="bookings.length === 0">
+            No bookings found.
+        </p>
+    </section>
+
+</main>
+
+<footer>Hotel Booking Management System</footer>
+
+<script>
+    var app = angular.module("hotelApp", []);
+
+    app.controller("hotelController", function ($scope) {
+        $scope.bookings = [];
+        $scope.booking = {};
+        $scope.editingId = null;
+        $scope.nextId = 1;
+        $scope.message = "";
+
+        $scope.saveBooking = function () {
+            var guest = ($scope.booking.guest || "").trim();
+            var room = ($scope.booking.room || "").trim();
+            var type = $scope.booking.type;
+
+            var exists = $scope.bookings.some(function (b) {
+                return b.room.toLowerCase() === room.toLowerCase()
+                    && b.type === type
+                    && b.id !== $scope.editingId;
+            });
+
+            if (exists) {
+                $scope.message =
+                    "Room already booked! Choose another room.";
+                return;
+            }
+
+            if ($scope.editingId !== null) {
+                var index = $scope.bookings.findIndex(function (b) {
+                    return b.id === $scope.editingId;
+                });
+
+                if (index !== -1) {
+                    $scope.bookings[index] = {
+                        id: $scope.editingId,
+                        guest: guest,
+                        room: room,
+                        type: type
+                    };
+                }
+
+                $scope.message = "Booking updated successfully!";
+            } else {
+                $scope.bookings.push({
+                    id: $scope.nextId++,
+                    guest: guest,
+                    room: room,
+                    type: type
+                });
+
+                $scope.message = "Booking added successfully!";
+            }
+
+            $scope.booking = {};
+            $scope.editingId = null;
+        };
+
+        $scope.editBooking = function (b) {
+            $scope.booking = {
+                guest: b.guest,
+                room: b.room,
+                type: b.type
+            };
+
+            $scope.editingId = b.id;
+            $scope.message = "Edit the details and update.";
+        };
+
+        $scope.deleteBooking = function (id) {
+            if (confirm("Do you want to delete this booking?")) {
+                $scope.bookings = $scope.bookings.filter(function (b) {
+                    return b.id !== id;
+                });
+
+                if ($scope.editingId === id) {
+                    $scope.cancelEdit();
+                }
+
+                $scope.message = "Booking deleted successfully!";
+            }
+        };
+
+        $scope.cancelEdit = function () {
+            $scope.booking = {};
+            $scope.editingId = null;
+            $scope.message = "";
+        };
+
+        $scope.refresh = function () {
+            $scope.search = "";
+            $scope.message = "Booking list refreshed!";
+        };
+    });
+</script>
+
+</body>
+</html>
+
+test.js
+
+const { Builder, By, until } = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
+const path = require('path');
+const { pathToFileURL } = require('url');
+const assert = require('assert');
+
+async function testHotelApp() {
+    const driver = await new Builder()
+        .forBrowser('chrome')
+        .setChromeOptions(new chrome.Options())
+        .build();
+
+    try {
+        // Open the HTML application
+        const fileUrl = pathToFileURL(
+            path.resolve(__dirname, 'index.html')
+        ).href;
+
+        await driver.get(fileUrl);
+
+        await driver.wait(
+            until.elementLocated(By.id('guestName')), 10000
+        );
+
+        console.log('Application opened successfully.');
+
+        // TEST 1: Add a booking
+        await driver.findElement(By.id('guestName'))
+            .sendKeys('Arun');
+
+        await driver.findElement(By.id('roomNumber'))
+            .sendKeys('101');
+
+        await driver.findElement(By.id('roomType'))
+            .sendKeys('Single');
+
+        await driver.findElement(By.id('submitBooking')).click();
+
+        await driver.wait(async () => {
+            const message = await driver.findElement(By.id('message'))
+                .getText();
+            return message === 'Booking added successfully!';
+        }, 5000);
+
+        let bookings = await driver.findElements(
+            By.css('#bookingList [data-testid="booking"]')
+        );
+
+        assert.strictEqual(bookings.length, 1);
+        console.log('PASS: Add booking');
+
+        // TEST 2: Search for a guest
+        await driver.findElement(By.id('searchInput'))
+            .sendKeys('Arun');
+
+        bookings = await driver.findElements(
+            By.css('#bookingList [data-testid="booking"]')
+        );
+
+        assert.strictEqual(bookings.length, 1);
+        assert.strictEqual(
+            await bookings[0].findElement(By.css('.guestValue')).getText(),
+            'Arun'
+        );
+
+        console.log('PASS: Search booking');
+
+        // TEST 3: Edit the booking
+        await driver.findElement(By.id('edit-1')).click();
+
+        await driver.wait(async () => {
+            return await driver.findElement(By.id('guestName'))
+                .getAttribute('value') === 'Arun';
+        }, 5000);
+
+        const guestInput = driver.findElement(By.id('guestName'));
+
+        await guestInput.clear();
+        await guestInput.sendKeys('Arun Kumar');
+
+        await driver.findElement(By.id('submitBooking')).click();
+
+        await driver.wait(async () => {
+            return await driver.findElement(By.id('message'))
+                .getText() === 'Booking updated successfully!';
+        }, 5000);
+
+        bookings = await driver.findElements(
+            By.css('#bookingList [data-testid="booking"]')
+        );
+
+        assert.strictEqual(
+            await bookings[0].findElement(By.css('.guestValue')).getText(),
+            'Arun Kumar'
+        );
+
+        console.log('PASS: Edit booking');
+
+        // TEST 4: Reject a duplicate room and room type
+        await driver.findElement(By.id('guestName'))
+            .sendKeys('Priya');
+
+        await driver.findElement(By.id('roomNumber'))
+            .sendKeys('101');
+
+        await driver.findElement(By.id('roomType'))
+            .sendKeys('Single');
+
+        await driver.findElement(By.id('submitBooking')).click();
+
+        await driver.wait(async () => {
+            return await driver.findElement(By.id('message'))
+                .getText() ===
+                'Room already booked! Choose another room.';
+        }, 5000);
+
+        bookings = await driver.findElements(
+            By.css('#bookingList [data-testid="booking"]')
+        );
+
+        assert.strictEqual(bookings.length, 1);
+        console.log('PASS: Duplicate booking validation');
+
+        // TEST 5: Refresh the booking list
+        await driver.findElement(By.id('refreshButton')).click();
+
+        await driver.wait(async () => {
+            return await driver.findElement(By.id('searchInput'))
+                .getAttribute('value') === '';
+        }, 5000);
+
+        assert.strictEqual(
+            await driver.findElement(By.id('message')).getText(),
+            'Booking list refreshed!'
+        );
+
+        console.log('PASS: Refresh booking list');
+
+        // TEST 6: Delete the booking
+        await driver.findElement(By.id('delete-1')).click();
+
+        await driver.wait(until.alertIsPresent(), 5000);
+
+        const alert = await driver.switchTo().alert();
+        assert.strictEqual(
+            await alert.getText(),
+            'Do you want to delete this booking?'
+        );
+
+        await alert.accept();
+
+        await driver.wait(async () => {
+            const items = await driver.findElements(
+                By.css('#bookingList [data-testid="booking"]')
+            );
+            return items.length === 0;
+        }, 5000);
+
+        assert.strictEqual(
+            await driver.findElement(By.id('message')).getText(),
+            'Booking deleted successfully!'
+        );
+
+        console.log('PASS: Delete booking');
+
+        console.log('\nALL TESTS PASSED SUCCESSFULLY!');
+
+    } catch (error) {
+        console.error('\nTEST FAILED:', error.message);
+        throw error;
+    } finally {
+        await driver.quit();
+    }
+}
+
+testHotelApp().catch(() => {
+    process.exitCode = 1;
+});
+
+npm init -y
+npm install selenium-webdriver
+npm install --save-dev http-server
+node test.js
